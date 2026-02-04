@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Star Shooter - เกมยิงปืน</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #1a1a2e;
+            color: white;
+            font-family: 'Tahoma', sans-serif;
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            border: 2px solid #00fff2;
+            border-radius: 10px;
+        }
+
+        canvas {
+            display: block;
+            background: radial-gradient(circle, #16213e, #0f3460);
+            cursor: crosshair;
+        }
+
+        #ui-layer {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            pointer-events: none;
+            width: calc(100% - 20px);
+        }
+
+        .stat-box {
+            font-size: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+            margin-bottom: 5px;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.85);
+            padding: 30px;
+            text-align: center;
+            border-radius: 15px;
+            border: 2px solid #ff4d4d;
+            display: none;
+        }
+
+        button {
+            padding: 10px 25px;
+            font-size: 18px;
+            background-color: #00fff2;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: 0.3s;
+        }
+
+        button:hover {
+            background-color: #008e87;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-layer">
+        <div class="stat-box">คะแนน: <span id="scoreText">0</span></div>
+        <div class="stat-box">พลังชีวิต (HP): <span id="hpText">10</span></div>
+    </div>
+    <div id="game-over" id="gameOverScreen">
+        <h1 style="color: #ff4d4d;">ไอ้กากๆ555+</h1>
+        <p>คะแนนที่คุณทำได้: <span id="finalScore">0</span></p>
+        <button onclick="resetGame()">เริ่มใหม่</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreText = document.getElementById('scoreText');
+    const hpText = document.getElementById('hpText');
+    const gameOverScreen = document.getElementById('game-over');
+    const finalScoreText = document.getElementById('finalScore');
+
+    // ตั้งค่าขนาด Canvas
+    canvas.width = 400;
+    canvas.height = 600;
+
+    let score = 0;
+    let hp = 10;
+    let gameActive = true;
+    let frameCount = 0;
+
+    // ตัวแปรผู้เล่น
+    const player = {
+        x: canvas.width / 2,
+        y: canvas.height - 40,
+        width: 40,
+        height: 40,
+        color: '#00fff2'
+    };
+
+    let bullets = [];
+    let enemies = [];
+
+    // คุมการยิง
+    window.addEventListener('mousedown', () => {
+        if (gameActive) shoot();
+    });
+
+    window.addEventListener('touchstart', (e) => {
+        if (gameActive) {
+            e.preventDefault();
+            shoot();
+        }
+    });
+
+    // คุมการเคลื่อนที่ (เมาส์)
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        player.x = e.clientX - rect.left;
+    });
+
+    // คุมการเคลื่อนที่ (Touch)
+    canvas.addEventListener('touchmove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        player.x = e.touches[0].clientX - rect.left;
+    });
+
+    function shoot() {
+        bullets.push({
+            x: player.x,
+            y: player.y,
+            radius: 5,
+            speed: 7,
+            color: '#fff200'
+        });
+    }
+
+    function createEnemy() {
+        const size = Math.random() * 20 + 15;
+        enemies.push({
+            x: Math.random() * (canvas.width - size),
+            y: -size,
+            size: size,
+            speed: (Math.random() * 2) + (score / 100) + 1, // ความเร็วเพิ่มตามคะแนน
+            color: '#ff4d4d'
+        });
+    }
+
+    function drawPlayer() {
+        ctx.fillStyle = player.color;
+        // วาดทรงป้อมปืน
+        ctx.beginPath();
+        ctx.moveTo(player.x, player.y);
+        ctx.lineTo(player.x - 20, player.y + 30);
+        ctx.lineTo(player.x + 20, player.y + 30);
+        ctx.closePath();
+        ctx.fill();
+        
+        // แสงออร่าปืน
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = player.color;
+    }
+
+    function update() {
+        if (!gameActive) return;
+
+        frameCount++;
+        if (frameCount % 60 === 0) createEnemy(); // สร้างศัตรูทุกๆ 1 วินาที
+
+        // อัปเดตกระสุน
+        bullets.forEach((bullet, index) => {
+            bullet.y -= bullet.speed;
+            if (bullet.y < 0) bullets.splice(index, 1);
+        });
+
+        // อัปเดตศัตรู
+        enemies.forEach((enemy, eIndex) => {
+            enemy.y += enemy.speed;
+
+            // ตรวจสอบว่าศัตรูหลุดขอบล่าง
+            if (enemy.y > canvas.height) {
+                enemies.splice(eIndex, 1);
+                hp--;
+                hpText.innerText = hp;
+                if (hp <= 0) endGame();
+            }
+
+            // ตรวจสอบการชนกับกระสุน
+            bullets.forEach((bullet, bIndex) => {
+                const dx = bullet.x - (enemy.x + enemy.size/2);
+                const dy = bullet.y - (enemy.y + enemy.size/2);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < bullet.radius + enemy.size/2) {
+                    enemies.splice(eIndex, 1);
+                    bullets.splice(bIndex, 1);
+                    score += 10;
+                    scoreText.innerText = score;
+                }
+            });
+        });
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // วาดดาวประดับฉาก (Static)
+        ctx.fillStyle = "rgba(255,255,255,0.1)";
+        for(let i=0; i<20; i++) {
+            ctx.beginPath();
+            ctx.arc((i*77)%canvas.width, (i*133)%canvas.height, 1, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        drawPlayer();
+
+        // วาดกระสุน
+        bullets.forEach(bullet => {
+            ctx.fillStyle = bullet.color;
+            ctx.beginPath();
+            ctx.arc(bullet.x, bullet.y, bullet.radius, 0, Math.PI * 2);
+            ctx.fill();
+        });
+
+        // วาดศัตรู
+        enemies.forEach(enemy => {
+            ctx.fillStyle = enemy.color;
+            ctx.shadowBlur = 5;
+            ctx.shadowColor = "red";
+            ctx.fillRect(enemy.x, enemy.y, enemy.size, enemy.size);
+        });
+    }
+
+    function gameLoop() {
+        update();
+        draw();
+        requestAnimationFrame(gameLoop);
+    }
+
+    function endGame() {
+        gameActive = false;
+        finalScoreText.innerText = score;
+        gameOverScreen.style.display = 'block';
+    }
+
+    function resetGame() {
+        score = 0;
+        hp = 10;
+        bullets = [];
+        enemies = [];
+        gameActive = true;
+        scoreText.innerText = score;
+        hpText.innerText = hp;
+        gameOverScreen.style.display = 'none';
+    }
+
+    // เริ่มเกม
+    gameLoop();
+</script>
+
+</body>
+</html>
